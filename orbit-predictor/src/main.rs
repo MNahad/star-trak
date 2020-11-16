@@ -1,42 +1,27 @@
-extern crate tle_parser;
+use std::io::{ErrorKind, Error};
 mod predictor;
-use predictor::sgp4;
-use std::io::prelude::*;
-use std::io::BufReader;
-use std::fs::File;
 
-fn read_file(path: &str) -> Result<Vec<String>, String> {
-  let mut cnt = 0;
-  let mut tle_block = String::new();
-  let mut tle_array = Vec::new();
-  if let Ok(file) = File::open(path) {
-    let lines = BufReader::new(file).lines();
-    for line_result in lines {
-      if let Ok(line) = line_result {
-        tle_block.push_str(&line);
-        tle_block.push('\n');
-        cnt += 1;
-        if cnt == 3 {
-          tle_array.push(String::from(&tle_block));
-          tle_block = String::new();
-          cnt = 0;
-        }
-      }
-    }
-    Ok(tle_array)
+fn main() -> Result<(), Box<dyn std::error::Error>> {
+  let res = ureq::get("https://celestrak.com/NORAD/elements/gp.php")
+    .query("GROUP", "starlink")
+    .query("FORMAT", "json")
+    .call();
+  if res.error() {
+    Err(Box::new(Error::new(ErrorKind::Other, format!(
+      "network error {}: {}",
+      res.status(),
+      res.into_string()?
+    ))))
   } else {
-    Err(String::from("FILE ERROR"))
-  }
-}
-
-fn main() {
-  if let Ok(raw_tles) = read_file("./src/starlink.txt") {
-    for tle in raw_tles {
-      let orbit = tle_parser::parse(&tle);
-      match orbit {
-        Ok(tle) => sgp4::predict(tle),
-        Err(_) => println!("ERROR")
+    if let Ok(sats) = predictor::predict(&res.into_json_deserialize()?) {
+      for sat in &sats {
+        println!("{}", sat.name.as_ref().unwrap_or(&String::from("STARLINK")));
+        println!("{:?}", sat.position);
+        println!("{:?}", sat.velocity);
+        println!("{}", sat.epoch);
+        println!("{}\n", sat.elapsed);
       }
     }
+    Ok(())
   }
 }
