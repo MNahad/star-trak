@@ -13,13 +13,16 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
       res.into_string()?
     ))))
   } else {
-    if let Ok(sats) = predictor::predict(&res.into_json_deserialize()?) {
+    if let Ok(sats) = predictor::propagate(&res.into_json_deserialize()?) {
       for sat in &sats {
-        println!("{}", sat.name.as_ref().unwrap_or(&String::from("STARLINK")));
-        println!("{:?}", sat.position);
-        println!("{:?}", sat.velocity);
-        println!("{}", sat.epoch);
-        println!("{}\n", sat.elapsed);
+        println!("Name: {}", sat.get_name());
+        println!("Timestamp: {}", sat.get_timestamp_s());
+        println!(
+          "LAT: {}, LON: {}, ALT: {}",
+          sat.get_geodetic_position().lat_deg,
+          sat.get_geodetic_position().lon_deg,
+          sat.get_geodetic_position().alt_km
+        );
       }
     }
     Ok(())
