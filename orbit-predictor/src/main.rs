@@ -1,5 +1,5 @@
 use std::io::{ErrorKind, Error};
-mod predictor;
+mod satellite;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
   let res = ureq::get("https://celestrak.com/NORAD/elements/gp.php")
@@ -13,7 +13,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
       res.into_string()?
     ))))
   } else {
-    if let Ok(sats) = predictor::propagate(&res.into_json_deserialize()?) {
+    if let Ok(sats) = satellite::propagate(&res.into_json_deserialize()?) {
       for sat in &sats {
         println!("Name: {}", sat.get_name());
         println!("Timestamp: {}", sat.get_timestamp_s());
