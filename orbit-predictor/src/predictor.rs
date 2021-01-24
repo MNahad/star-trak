@@ -68,8 +68,7 @@ pub fn propagate(
         };
         let position_geodetic = eci_to_geodetic(
           &position_eci_km,
-          &elements.epoch(),
-          &((elapsed_ms as f64) / 1000.0),
+          &sgp4::iau_epoch_to_sidereal_time(elements.epoch() + ((elapsed_ms as f64) / (31_557_600.0 * 1000.0)))
         );
         predictions.push(Satellite {
           coords: Coords {
@@ -91,21 +90,16 @@ pub fn propagate(
 
 fn eci_to_geodetic(
   position_eci_km: &Cartesian,
-  epoch_y: &f64,
-  elapsed_since_epoch_s: &f64,
+  gmst: &f64,
 ) -> Geodetic {
-  let omega_e_rad_s = 7.29211510e-5;
-  let theta_g = (
-    sgp4::iau_epoch_to_sidereal_time(*epoch_y) + omega_e_rad_s * *elapsed_since_epoch_s
-  ).rem_euclid(2.0 * PI);
   let theta = position_eci_km.y.atan2(position_eci_km.x);
   let theta = if theta < 0.0 { theta + 2.0 * PI } else { theta };
-  let delta_theta = theta - theta_g;
-  let delta_theta = if delta_theta > PI { delta_theta - 2.0 * PI } else { delta_theta };
-  let delta_theta = if delta_theta < -PI { delta_theta + 2.0 * PI } else { delta_theta };
-  let lon_deg = delta_theta * 180.0 / PI;
+  let lambda_e = theta - gmst;
+  let lambda_e = if lambda_e > PI { lambda_e - 2.0 * PI } else { lambda_e };
+  let lambda_e = if lambda_e < -PI { lambda_e + 2.0 * PI } else { lambda_e };
+  let lon_deg = lambda_e * 180.0 / PI;
   let r_km = (position_eci_km.x.powi(2) + position_eci_km.y.powi(2)).sqrt();
-  let (lat_deg, alt_km) = compute_geodetic_values(&r_km, &position_eci_km.z);
+  let (lat_deg, alt_km) = compute_geodetic_coords_2d(&r_km, &position_eci_km.z);
   Geodetic {
     lat_deg,
     lon_deg,
@@ -113,7 +107,7 @@ fn eci_to_geodetic(
   }
 }
 
-fn compute_geodetic_values(r_km: &f64, z_km: &f64) -> (f64, f64) {
+fn compute_geodetic_coords_2d(r_km: &f64, z_km: &f64) -> (f64, f64) {
   // Refer to
   // J. Zhu, "Conversion of Earth-centered Earth-fixed coordinates to geodetic coordinates,"
   // IEEE Transactions on Aerospace and Electronic Systems, vol 30, pp 957-961, 1994.
