@@ -58,7 +58,9 @@ pub fn propagate(
         };
         let position_geodetic = transforms::eci_to_geodetic(
           &position_eci_km,
-          &sgp4::iau_epoch_to_sidereal_time(elements.epoch() + ((elapsed_ms as f64) / (31_557_600.0 * 1000.0)))
+          &sgp4::iau_epoch_to_sidereal_time(
+            elements.epoch() + ((elapsed_ms as f64) / (31_557_600.0 * 1000.0))
+          )
         );
         predictions.push(Satellite {
           coords: Coords {

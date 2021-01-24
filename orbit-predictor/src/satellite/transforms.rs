@@ -21,13 +21,31 @@ pub fn eci_to_geodetic(
   let lambda_e = theta - gmst;
   let lambda_e = if lambda_e > PI { lambda_e - 2.0 * PI } else { lambda_e };
   let lambda_e = if lambda_e < -PI { lambda_e + 2.0 * PI } else { lambda_e };
-  let lon_deg = lambda_e * 180.0 / PI;
+  let lon_deg = lambda_e.to_degrees();
   let r_km = (position_eci_km.x.powi(2) + position_eci_km.y.powi(2)).sqrt();
   let (lat_deg, alt_km) = compute_geodetic_coords_2d(&r_km, &position_eci_km.z);
   Geodetic {
     lat_deg,
     lon_deg,
     alt_km,
+  }
+}
+
+pub fn geodetic_to_eci(position_geodetic: &Geodetic, gmst: &f64) -> Cartesian {
+  let a = 6378137.0_f64;
+  let e_sq = 0.00669437999014_f64;
+  let cos_phi = position_geodetic.lat_deg.to_radians().cos();
+  let sin_phi = position_geodetic.lat_deg.to_radians().sin();
+  let cc = (
+    1.0 - e_sq * sin_phi.powi(2)
+  ).sqrt().recip();
+  let theta = gmst + position_geodetic.lon_deg.to_radians();
+  // let theta = if theta > 2.0 * PI { theta - 2.0 * PI } else { theta };
+  // let theta = if theta < 0.0 { theta + 2.0 * PI } else { theta };
+  Cartesian {
+    x: (a * cc + position_geodetic.alt_km) * cos_phi * theta.cos(),
+    y: (a * cc + position_geodetic.alt_km) * cos_phi * theta.sin(),
+    z: (a * cc * (1.0 - e_sq) + position_geodetic.alt_km) * sin_phi,
   }
 }
 
@@ -59,7 +77,7 @@ fn compute_geodetic_coords_2d(r_km: &f64, z_km: &f64) -> (f64, f64) {
   let uu = ((r - e_sq * r_o).powi(2) + z_sq).sqrt();
   let vv = ((r - e_sq * r_o).powi(2) + (1.0 - e_sq) * z_sq).sqrt();
   let z_o = b_sq * z * (a_sq.sqrt() * vv).recip();
-  let lat_deg = (z + e_two_sq * z_o).atan2(r) * 180.0 / PI;
+  let lat_deg = (z + e_two_sq * z_o).atan2(r).to_degrees();
   let alt_km = uu * (1.0 - z_o * z.recip()) * 0.001;
   (lat_deg, alt_km)
 }
