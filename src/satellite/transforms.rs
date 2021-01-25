@@ -36,12 +36,8 @@ pub fn geodetic_to_eci(position_geodetic: &Geodetic, gmst: &f64) -> Cartesian {
   let e_sq = 0.00669437999014_f64;
   let cos_phi = position_geodetic.lat_deg.to_radians().cos();
   let sin_phi = position_geodetic.lat_deg.to_radians().sin();
-  let cc = (
-    1.0 - e_sq * sin_phi.powi(2)
-  ).sqrt().recip();
+  let cc = (1.0 - e_sq * sin_phi.powi(2)).sqrt().recip();
   let theta = gmst + position_geodetic.lon_deg.to_radians();
-  // let theta = if theta > 2.0 * PI { theta - 2.0 * PI } else { theta };
-  // let theta = if theta < 0.0 { theta + 2.0 * PI } else { theta };
   Cartesian {
     x: (a * cc + position_geodetic.alt_km) * cos_phi * theta.cos(),
     y: (a * cc + position_geodetic.alt_km) * cos_phi * theta.sin(),
