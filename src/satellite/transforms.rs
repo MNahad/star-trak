@@ -12,6 +12,12 @@ pub struct Cartesian {
   pub z: f64,
 }
 
+pub struct Horizontal {
+  pub azimuth_deg: f64,
+  pub elevation_deg: f64,
+  pub range_km: f64,
+}
+
 pub fn eci_to_geodetic(
   position_eci_km: &Cartesian,
   gmst: &f64,
@@ -36,12 +42,44 @@ pub fn geodetic_to_eci(position_geodetic: &Geodetic, gmst: &f64) -> Cartesian {
   let e_sq = 0.00669437999014_f64;
   let cos_phi = position_geodetic.lat_deg.to_radians().cos();
   let sin_phi = position_geodetic.lat_deg.to_radians().sin();
-  let cc = (1.0 - e_sq * sin_phi.powi(2)).sqrt().recip();
+  let cc = a * (1.0 - e_sq * sin_phi.powi(2)).sqrt().recip();
   let theta = gmst + position_geodetic.lon_deg.to_radians();
   Cartesian {
-    x: (a * cc + position_geodetic.alt_km) * cos_phi * theta.cos(),
-    y: (a * cc + position_geodetic.alt_km) * cos_phi * theta.sin(),
-    z: (a * cc * (1.0 - e_sq) + position_geodetic.alt_km) * sin_phi,
+    x: ((cc + position_geodetic.alt_km * 1000.0) * cos_phi * theta.cos()) * 0.001,
+    y: ((cc + position_geodetic.alt_km * 1000.0) * cos_phi * theta.sin()) * 0.001,
+    z: ((cc * (1.0 - e_sq) + position_geodetic.alt_km * 1000.0) * sin_phi) * 0.001,
+  }
+}
+
+pub fn eci_to_topocentric_enu(
+  vector_km: &Cartesian,
+  lat_deg: &f64,
+  lon_deg: &f64,
+  gmst: &f64,
+) -> Cartesian {
+  let theta = gmst + lon_deg.to_radians();
+  let s_lat = lat_deg.to_radians().sin();
+  let s_lon = theta.sin();
+  let c_lat = lat_deg.to_radians().cos();
+  let c_lon = theta.cos();
+  let m: [[f64; 3]; 3] = [
+    [-s_lon, c_lon, 0.0],
+    [-s_lat * c_lon, -s_lat * s_lon, c_lat],
+    [c_lat * c_lon, c_lat * s_lon, s_lat],
+  ];
+  Cartesian {
+    x: m[0][0] * vector_km.x + m[0][1] * vector_km.y + m[0][2] * vector_km.z,
+    y: m[1][0] * vector_km.x + m[1][1] * vector_km.y + m[1][2] * vector_km.z,
+    z: m[2][0] * vector_km.x + m[2][1] * vector_km.y + m[2][2] * vector_km.z,
+  }
+}
+
+pub fn enu_to_aer(enu_km: &Cartesian) -> Horizontal {
+  let range_km = (enu_km.x.powi(2) + enu_km.y.powi(2) + enu_km.z.powi(2)).sqrt();
+  Horizontal {
+    azimuth_deg: (enu_km.x).atan2(enu_km.y).to_degrees(),
+    elevation_deg: (enu_km.z * range_km.recip()).asin().to_degrees(),
+    range_km,
   }
 }
 

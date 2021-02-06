@@ -1,6 +1,7 @@
 mod transforms;
 use transforms::Cartesian;
-use transforms::Geodetic;
+pub use transforms::Geodetic;
+use chrono::{Datelike, Timelike};
 
 pub struct Satellite<'a> {
   timing: Timing,
@@ -78,4 +79,45 @@ pub fn propagate(
     }
   }
   Ok(predictions)
+}
+
+pub fn filter_sats<'a, 'b>(
+  observer_geodetic: &Geodetic,
+  sats: &'a Vec<Satellite<'b>>,
+) -> Vec<&'a Satellite<'b>> {
+  let gmst = sgp4::iau_epoch_to_sidereal_time(epoch(&chrono::Utc::now().naive_utc()));
+  let observer_eci = transforms::geodetic_to_eci(observer_geodetic, &gmst);
+  let mut filtered = Vec::new();
+  for sat in sats {
+    let range_eci = Cartesian {
+      x: sat.coords.position_eci_km.x - observer_eci.x,
+      y: sat.coords.position_eci_km.y - observer_eci.y,
+      z: sat.coords.position_eci_km.z - observer_eci.z,
+    };
+    let range_enu = transforms::eci_to_topocentric_enu(
+      &range_eci,
+      &observer_geodetic.lat_deg,
+      &observer_geodetic.lon_deg,
+      &gmst,
+    );
+    let range_aer = transforms::enu_to_aer(&range_enu);
+    if range_enu.z > 0.0 {
+      filtered.push(sat);
+    }
+  }
+  filtered
+}
+
+// Based on
+// https://crates.io/crates/sgp4
+fn epoch(datetime: &chrono::NaiveDateTime) -> f64 {
+  (
+    367 * datetime.year() as i32
+    - (7 * (datetime.year() as i32 + (datetime.month() as i32 + 9) / 12)) / 4
+    + 275 * datetime.month() as i32 / 9
+    + datetime.day() as i32
+    - 730531
+  ) as f64 / 365.25
+  + (datetime.num_seconds_from_midnight() as i32 - 43200) as f64 / (24.0 * 60.0 * 60.0 * 365.25)
+  + (datetime.nanosecond() as f64) / (24.0 * 60.0 * 60.0 * 1e9 * 365.25)
 }
