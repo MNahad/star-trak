@@ -20,7 +20,7 @@ pub struct Horizontal {
 
 pub fn eci_to_geodetic(
   position_eci_km: &Cartesian,
-  gmst: &f64,
+  gmst: f64,
 ) -> Geodetic {
   let theta = position_eci_km.y.atan2(position_eci_km.x);
   let theta = if theta < 0.0 { theta + 2.0 * PI } else { theta };
@@ -29,7 +29,7 @@ pub fn eci_to_geodetic(
   let lambda_e = if lambda_e < -PI { lambda_e + 2.0 * PI } else { lambda_e };
   let lon_deg = lambda_e.to_degrees();
   let r_km = (position_eci_km.x.powi(2) + position_eci_km.y.powi(2)).sqrt();
-  let (lat_deg, alt_km) = compute_geodetic_coords_2d(&r_km, &position_eci_km.z);
+  let (lat_deg, alt_km) = compute_geodetic_coords_2d(r_km, position_eci_km.z);
   Geodetic {
     lat_deg,
     lon_deg,
@@ -37,7 +37,7 @@ pub fn eci_to_geodetic(
   }
 }
 
-pub fn geodetic_to_eci(position_geodetic: &Geodetic, gmst: &f64) -> Cartesian {
+pub fn geodetic_to_eci(position_geodetic: &Geodetic, gmst: f64) -> Cartesian {
   let a = 6378137.0_f64;
   let e_sq = 0.00669437999014_f64;
   let cos_phi = position_geodetic.lat_deg.to_radians().cos();
@@ -53,9 +53,9 @@ pub fn geodetic_to_eci(position_geodetic: &Geodetic, gmst: &f64) -> Cartesian {
 
 pub fn eci_to_topocentric_enu(
   vector_km: &Cartesian,
-  lat_deg: &f64,
-  lon_deg: &f64,
-  gmst: &f64,
+  lat_deg: f64,
+  lon_deg: f64,
+  gmst: f64,
 ) -> Cartesian {
   let theta = gmst + lon_deg.to_radians();
   let s_lat = lat_deg.to_radians().sin();
@@ -83,7 +83,7 @@ pub fn enu_to_aer(enu_km: &Cartesian) -> Horizontal {
   }
 }
 
-fn compute_geodetic_coords_2d(r_km: &f64, z_km: &f64) -> (f64, f64) {
+fn compute_geodetic_coords_2d(r_km: f64, z_km: f64) -> (f64, f64) {
   // Refer to
   // J. Zhu, "Conversion of Earth-centered Earth-fixed coordinates to geodetic coordinates,"
   // IEEE Transactions on Aerospace and Electronic Systems, vol 30, pp 957-961, 1994.
@@ -91,9 +91,9 @@ fn compute_geodetic_coords_2d(r_km: &f64, z_km: &f64) -> (f64, f64) {
   let b_sq = 6356752.3142_f64.powi(2);
   let e_sq = 0.00669437999014_f64;
   let e_two_sq = 0.00673949674228_f64;
-  let r = *r_km * 1000.0;
+  let r = r_km * 1000.0;
   let r_sq = r.powi(2);
-  let z = *z_km * 1000.0;
+  let z = z_km * 1000.0;
   let z_sq = z.powi(2);
   let ee_sq = a_sq - b_sq;
   let ff = 54.0 * b_sq * z_sq;

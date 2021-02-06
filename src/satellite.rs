@@ -10,8 +10,8 @@ pub struct Satellite<'a> {
 }
 
 impl Satellite<'_> {
-  pub fn get_norad_id(&self) -> &u64 {
-    &self.elements.norad_id
+  pub fn get_norad_id(&self) -> u64 {
+    self.elements.norad_id
   }
   pub fn get_name(&self) -> &String {
     self.elements.object_name.as_ref().unwrap()
@@ -22,8 +22,8 @@ impl Satellite<'_> {
   pub fn get_geodetic_position(&self) -> &Geodetic {
     &self.coords.position_geodetic
   }
-  pub fn get_timestamp_s(&self) -> &i64 {
-    &self.timing.timestamp_s
+  pub fn get_timestamp_s(&self) -> i64 {
+    self.timing.timestamp_s
   }
 }
 
@@ -59,7 +59,7 @@ pub fn propagate(
         };
         let position_geodetic = transforms::eci_to_geodetic(
           &position_eci_km,
-          &sgp4::iau_epoch_to_sidereal_time(
+          sgp4::iau_epoch_to_sidereal_time(
             elements.epoch() + ((elapsed_ms as f64) / (31_557_600.0 * 1000.0))
           )
         );
@@ -86,7 +86,7 @@ pub fn filter_sats<'a, 'b>(
   sats: &'a Vec<Satellite<'b>>,
 ) -> Vec<&'a Satellite<'b>> {
   let gmst = sgp4::iau_epoch_to_sidereal_time(epoch(&chrono::Utc::now().naive_utc()));
-  let observer_eci = transforms::geodetic_to_eci(observer_geodetic, &gmst);
+  let observer_eci = transforms::geodetic_to_eci(observer_geodetic, gmst);
   let mut filtered = Vec::new();
   for sat in sats {
     let range_eci = Cartesian {
@@ -96,9 +96,9 @@ pub fn filter_sats<'a, 'b>(
     };
     let range_enu = transforms::eci_to_topocentric_enu(
       &range_eci,
-      &observer_geodetic.lat_deg,
-      &observer_geodetic.lon_deg,
-      &gmst,
+      observer_geodetic.lat_deg,
+      observer_geodetic.lon_deg,
+      gmst,
     );
     let range_aer = transforms::enu_to_aer(&range_enu);
     if range_enu.z > 0.0 {
