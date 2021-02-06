@@ -42,7 +42,7 @@ pub fn geodetic_to_eci(position_geodetic: &Geodetic, gmst: &f64) -> Cartesian {
   let e_sq = 0.00669437999014_f64;
   let cos_phi = position_geodetic.lat_deg.to_radians().cos();
   let sin_phi = position_geodetic.lat_deg.to_radians().sin();
-  let cc = a * (1.0 - e_sq * sin_phi.powi(2)).sqrt().recip();
+  let cc = a / (1.0 - e_sq * sin_phi.powi(2)).sqrt();
   let theta = gmst + position_geodetic.lon_deg.to_radians();
   Cartesian {
     x: ((cc + position_geodetic.alt_km * 1000.0) * cos_phi * theta.cos()) * 0.001,
@@ -78,7 +78,7 @@ pub fn enu_to_aer(enu_km: &Cartesian) -> Horizontal {
   let range_km = (enu_km.x.powi(2) + enu_km.y.powi(2) + enu_km.z.powi(2)).sqrt();
   Horizontal {
     azimuth_deg: (enu_km.x).atan2(enu_km.y).to_degrees(),
-    elevation_deg: (enu_km.z * range_km.recip()).asin().to_degrees(),
+    elevation_deg: (enu_km.z / range_km).asin().to_degrees(),
     range_km,
   }
 }
@@ -98,20 +98,20 @@ fn compute_geodetic_coords_2d(r_km: &f64, z_km: &f64) -> (f64, f64) {
   let ee_sq = a_sq - b_sq;
   let ff = 54.0 * b_sq * z_sq;
   let gg = r_sq + ((1.0 - e_sq) * z_sq) - (e_sq * ee_sq);
-  let cc = (e_sq.powi(2) * ff * r_sq) * gg.powi(3).recip();
+  let cc = (e_sq.powi(2) * ff * r_sq) / gg.powi(3);
   let ss = (1.0 + cc + (cc.powi(2) + 2.0 * cc).sqrt()).cbrt();
-  let pp = ff * (3.0 * (ss + ss.recip() + 1.0).powi(2) * gg.powi(2)).recip();
+  let pp = ff / (3.0 * (ss + ss.recip() + 1.0).powi(2) * gg.powi(2));
   let qq = (1.0 + 2.0 * e_sq.powi(2) * pp).sqrt();
-  let r_o = ((-(pp * e_sq * r)) * (1.0 + qq).recip()) +
+  let r_o = ((-(pp * e_sq * r)) / (1.0 + qq)) +
     (
       (0.5 * a_sq * (1.0 + qq.recip()))
-      - ((pp * (1.0 - e_sq) * z_sq) * (qq * (1.0 + qq)).recip())
+      - ((pp * (1.0 - e_sq) * z_sq) / (qq * (1.0 + qq)))
       - (0.5 * pp * r_sq)
     ).sqrt();
   let uu = ((r - e_sq * r_o).powi(2) + z_sq).sqrt();
   let vv = ((r - e_sq * r_o).powi(2) + (1.0 - e_sq) * z_sq).sqrt();
-  let z_o = b_sq * z * (a_sq.sqrt() * vv).recip();
+  let z_o = b_sq * z / (a_sq.sqrt() * vv);
   let lat_deg = (z + e_two_sq * z_o).atan2(r).to_degrees();
-  let alt_km = uu * (1.0 - z_o * z.recip()) * 0.001;
+  let alt_km = uu * (1.0 - z_o / z) * 0.001;
   (lat_deg, alt_km)
 }
