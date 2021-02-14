@@ -1,7 +1,7 @@
 mod transforms;
-use transforms::Cartesian;
-pub use transforms::Geodetic;
+use transforms::{Geodetic, Horizontal, Cartesian};
 use chrono::{Datelike, Timelike};
+use std::collections::HashMap;
 
 pub struct Satellite<'a> {
   timing: Timing,
@@ -9,21 +9,81 @@ pub struct Satellite<'a> {
   elements: &'a sgp4::Elements,
 }
 
-impl Satellite<'_> {
+impl<'a> Satellite<'a> {
   pub fn get_norad_id(&self) -> u64 {
     self.elements.norad_id
   }
-  pub fn get_name(&self) -> &String {
-    self.elements.object_name.as_ref().unwrap()
+  pub fn get_name(&self) -> &str {
+    if let Some(name) = self.elements.object_name.as_ref() {
+      name
+    } else {
+      "NAME"
+    }
   }
-  pub fn get_international_designator(&self) -> &String {
-    self.elements.international_designator.as_ref().unwrap()
+  pub fn get_international_designator(&self) -> &str {
+    if let Some(designator) = self.elements.international_designator.as_ref() {
+      designator
+    } else {
+      "DESIGNATOR"
+    }
   }
   pub fn get_geodetic_position(&self) -> &Geodetic {
     &self.coords.position_geodetic
   }
   pub fn get_timestamp_s(&self) -> i64 {
     self.timing.timestamp_s
+  }
+  fn update_coords(&mut self, coords: Coords) -> () {
+    self.coords = coords;
+  }
+  fn update_timing(&mut self, timing: Timing) -> () {
+    self.timing = timing;
+  }
+}
+
+pub struct Observer<'a, 'b> {
+  observer_position: Geodetic,
+  observer_timestamp_s: i64,
+  satellites_in_los: HashMap<u64, RangedSatellite<'a, 'b>>,
+}
+
+impl<'a, 'b> Observer<'a, 'b> {
+  pub fn new(lat_lng_alt: [f64; 3], timestamp_s: i64) -> Self {
+    Observer {
+      observer_position: Geodetic {
+        lat_deg: lat_lng_alt[0],
+        lon_deg: lat_lng_alt[1],
+        alt_km: lat_lng_alt[2],
+      },
+      observer_timestamp_s: timestamp_s,
+      satellites_in_los: HashMap::new(),
+    }
+  }
+  pub fn get_satellites_in_los(&self) -> Vec<&RangedSatellite> {
+    self.satellites_in_los.values().collect()
+  }
+  fn upsert_satellite_in_los(&mut self, sat: RangedSatellite<'a, 'b>) -> () {
+    self.satellites_in_los.insert(sat.satellite.get_norad_id(), sat);
+  }
+  fn delete_satellite_in_los(&mut self, id: u64) -> () {
+    self.satellites_in_los.remove(&id);
+  }
+  fn update_timestamp(&mut self, timestamp: i64) -> () {
+    self.observer_timestamp_s = timestamp;
+  }
+}
+
+pub struct RangedSatellite<'a, 'b> {
+  satellite_position: Horizontal,
+  satellite: &'b Satellite<'a>,
+}
+
+impl<'a, 'b> RangedSatellite<'a, 'b> {
+  pub fn get_position(&self) -> &Horizontal {
+    &self.satellite_position
+  }
+  pub fn get_satellite_info(&self) -> &Satellite {
+    self.satellite
   }
 }
 
@@ -81,13 +141,13 @@ pub fn propagate(
   Ok(predictions)
 }
 
-pub fn filter_sats<'a, 'b>(
-  observer_geodetic: &Geodetic,
-  sats: &'a Vec<Satellite<'b>>,
-) -> Vec<&'a Satellite<'b>> {
-  let gmst = sgp4::iau_epoch_to_sidereal_time(epoch(&chrono::Utc::now().naive_utc()));
-  let observer_eci = transforms::geodetic_to_eci(observer_geodetic, gmst);
-  let mut filtered = Vec::new();
+pub fn update_observer_satellites<'a, 'b>(
+  observer: &mut Observer<'a, 'b>,
+  sats: &'b Vec<Satellite<'a>>
+) -> () {
+  let timestamp = chrono::Utc::now().naive_utc();
+  let gmst = sgp4::iau_epoch_to_sidereal_time(epoch(&timestamp));
+  let observer_eci = transforms::geodetic_to_eci(&observer.observer_position, gmst);
   for sat in sats {
     let range_eci = Cartesian {
       x: sat.coords.position_eci_km.x - observer_eci.x,
@@ -96,16 +156,21 @@ pub fn filter_sats<'a, 'b>(
     };
     let range_enu = transforms::eci_to_topocentric_enu(
       &range_eci,
-      observer_geodetic.lat_deg,
-      observer_geodetic.lon_deg,
+      observer.observer_position.lat_deg,
+      observer.observer_position.lon_deg,
       gmst,
     );
     let range_aer = transforms::enu_to_aer(&range_enu);
     if range_enu.z > 0.0 {
-      filtered.push(sat);
+      observer.upsert_satellite_in_los(RangedSatellite {
+        satellite_position: range_aer,
+        satellite: sat,
+      });
+    } else {
+      observer.delete_satellite_in_los(sat.get_norad_id());
     }
   }
-  filtered
+  observer.update_timestamp(timestamp.timestamp());
 }
 
 // Based on
