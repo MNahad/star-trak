@@ -1,62 +1,70 @@
 use std::f64::consts::PI;
 
-pub struct Geodetic {
-  pub lat_deg: f64,
-  pub lon_deg: f64,
-  pub alt_km: f64,
+pub trait Geodetic {
+  fn new(lat_deg: f64, lon_deg: f64, alt_km: f64) -> Self;
+  fn get_lat_deg(&self) -> f64;
+  fn get_lon_deg(&self) -> f64;
+  fn get_alt_km(&self) -> f64;
+  fn set(&mut self, lat_deg: f64, lon_deg: f64, alt_km: f64);
 }
 
-pub struct Cartesian {
-  pub x: f64,
-  pub y: f64,
-  pub z: f64,
+pub trait Horizontal {
+  fn new(azimuth_deg: f64, elevation_deg: f64, range_km: f64) -> Self;
+  fn get_azimuth_deg(&self) -> f64;
+  fn get_elevation_deg(&self) -> f64;
+  fn get_range_km(&self) -> f64;
+  fn set(&mut self, azimuth_deg: f64, elevation_deg: f64, range_km: f64);
 }
 
-pub struct Horizontal {
-  pub azimuth_deg: f64,
-  pub elevation_deg: f64,
-  pub range_km: f64,
+pub trait Cartesian {
+  fn new(x: f64, y: f64, z: f64) -> Self;
+  fn get_x(&self) -> f64;
+  fn get_y(&self) -> f64;
+  fn get_z(&self) -> f64;
+  fn set(&mut self, x: f64, y: f64, z: f64);
 }
 
-pub fn eci_to_geodetic(
-  position_eci_km: &Cartesian,
-  gmst: f64,
-) -> Geodetic {
-  let theta = position_eci_km.y.atan2(position_eci_km.x);
+pub fn eci_to_geodetic<T>(position_eci_km: &impl Cartesian, gmst: f64) -> T
+  where
+    T: Geodetic,
+{
+  let theta = position_eci_km.get_y().atan2(position_eci_km.get_x());
   let theta = if theta < 0.0 { theta + 2.0 * PI } else { theta };
   let lambda_e = theta - gmst;
   let lambda_e = if lambda_e > PI { lambda_e - 2.0 * PI } else { lambda_e };
   let lambda_e = if lambda_e < -PI { lambda_e + 2.0 * PI } else { lambda_e };
   let lon_deg = lambda_e.to_degrees();
-  let r_km = (position_eci_km.x.powi(2) + position_eci_km.y.powi(2)).sqrt();
-  let (lat_deg, alt_km) = compute_geodetic_coords_2d(r_km, position_eci_km.z);
-  Geodetic {
-    lat_deg,
-    lon_deg,
-    alt_km,
-  }
+  let r_km = (position_eci_km.get_x().powi(2) + position_eci_km.get_y().powi(2)).sqrt();
+  let (lat_deg, alt_km) = compute_geodetic_coords_2d(r_km, position_eci_km.get_z());
+  Geodetic::new(lat_deg, lon_deg, alt_km)
 }
 
-pub fn geodetic_to_eci(position_geodetic: &Geodetic, gmst: f64) -> Cartesian {
+pub fn geodetic_to_eci<T>(position_geodetic: &impl Geodetic, gmst: f64) -> T
+  where
+    T: Cartesian,
+{
   let a = 6378137.0_f64;
   let e_sq = 0.00669437999014_f64;
-  let cos_phi = position_geodetic.lat_deg.to_radians().cos();
-  let sin_phi = position_geodetic.lat_deg.to_radians().sin();
+  let cos_phi = position_geodetic.get_lat_deg().to_radians().cos();
+  let sin_phi = position_geodetic.get_lat_deg().to_radians().sin();
   let cc = a / (1.0 - e_sq * sin_phi.powi(2)).sqrt();
-  let theta = gmst + position_geodetic.lon_deg.to_radians();
-  Cartesian {
-    x: ((cc + position_geodetic.alt_km * 1000.0) * cos_phi * theta.cos()) * 0.001,
-    y: ((cc + position_geodetic.alt_km * 1000.0) * cos_phi * theta.sin()) * 0.001,
-    z: ((cc * (1.0 - e_sq) + position_geodetic.alt_km * 1000.0) * sin_phi) * 0.001,
-  }
+  let theta = gmst + position_geodetic.get_lon_deg().to_radians();
+  Cartesian::new(
+    ((cc + position_geodetic.get_alt_km() * 1000.0) * cos_phi * theta.cos()) * 0.001,
+    ((cc + position_geodetic.get_alt_km() * 1000.0) * cos_phi * theta.sin()) * 0.001,
+    ((cc * (1.0 - e_sq) + position_geodetic.get_alt_km() * 1000.0) * sin_phi) * 0.001,
+  )
 }
 
-pub fn eci_to_topocentric_enu(
-  vector_km: &Cartesian,
+pub fn eci_to_topocentric_enu<T>(
+  vector_km: &impl Cartesian,
   lat_deg: f64,
   lon_deg: f64,
   gmst: f64,
-) -> Cartesian {
+) -> T
+  where
+    T: Cartesian,
+{
   let theta = gmst + lon_deg.to_radians();
   let s_lat = lat_deg.to_radians().sin();
   let s_lon = theta.sin();
@@ -67,20 +75,23 @@ pub fn eci_to_topocentric_enu(
     [-s_lat * c_lon, -s_lat * s_lon, c_lat],
     [c_lat * c_lon, c_lat * s_lon, s_lat],
   ];
-  Cartesian {
-    x: m[0][0] * vector_km.x + m[0][1] * vector_km.y + m[0][2] * vector_km.z,
-    y: m[1][0] * vector_km.x + m[1][1] * vector_km.y + m[1][2] * vector_km.z,
-    z: m[2][0] * vector_km.x + m[2][1] * vector_km.y + m[2][2] * vector_km.z,
-  }
+  Cartesian::new(
+    m[0][0] * vector_km.get_x() + m[0][1] * vector_km.get_y() + m[0][2] * vector_km.get_z(),
+    m[1][0] * vector_km.get_x() + m[1][1] * vector_km.get_y() + m[1][2] * vector_km.get_z(),
+    m[2][0] * vector_km.get_x() + m[2][1] * vector_km.get_y() + m[2][2] * vector_km.get_z(),
+  )
 }
 
-pub fn enu_to_aer(enu_km: &Cartesian) -> Horizontal {
-  let range_km = (enu_km.x.powi(2) + enu_km.y.powi(2) + enu_km.z.powi(2)).sqrt();
-  Horizontal {
-    azimuth_deg: (enu_km.x).atan2(enu_km.y).to_degrees(),
-    elevation_deg: (enu_km.z / range_km).asin().to_degrees(),
+pub fn enu_to_aer<T>(enu_km: &impl Cartesian) -> T
+  where
+    T: Horizontal,
+{
+  let range_km = (enu_km.get_x().powi(2) + enu_km.get_y().powi(2) + enu_km.get_z().powi(2)).sqrt();
+  Horizontal::new(
+    (enu_km.get_x()).atan2(enu_km.get_y()).to_degrees(),
+    (enu_km.get_z() / range_km).asin().to_degrees(),
     range_km,
-  }
+  )
 }
 
 fn compute_geodetic_coords_2d(r_km: f64, z_km: f64) -> (f64, f64) {
