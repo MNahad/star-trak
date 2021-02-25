@@ -114,3 +114,75 @@ fn compute_geodetic_coords_2d(r_km: f64, z_km: f64) -> (f64, f64) {
   let alt_km = uu * (1.0 - z_o / z) * 0.001;
   (lat_deg, alt_km)
 }
+
+#[cfg(test)]
+mod tests {
+  use super::{Geodetic, Horizontal, Cartesian};
+
+  fn assert_eq(left: f64, right: f64) {
+    assert!((left - right).abs() <= 1e-6);
+  }
+
+  #[test]
+  fn it_converts_eci_to_geodetic() {
+    let eci = Cartesian {
+      x: -1040.847789,
+      y: 6686.458279,
+      z: 3670.305288,
+    };
+    let gmst = 3.132033;
+    let geodetic = Geodetic {
+      lat_deg: 28.608389,
+      lon_deg: -80.604333,
+      alt_km: 1325.000000,
+    };
+    let geo_result = super::eci_to_geodetic(&eci, gmst);
+    assert_eq(geo_result.lat_deg, geodetic.lat_deg);
+    assert_eq(geo_result.lon_deg, geodetic.lon_deg);
+    assert_eq(geo_result.alt_km, geodetic.alt_km);
+  }
+
+  #[test]
+  fn it_converts_geodetic_to_eci() {
+    let geodetic = Geodetic {
+      lat_deg: 28.608389,
+      lon_deg: -80.604333,
+      alt_km: 1325.000000,
+    };
+    let gmst = 3.132033;
+    let eci = Cartesian {
+      x: -1040.847789,
+      y: 6686.458279,
+      z: 3670.305288,
+    };
+    let eci_result = super::geodetic_to_eci(&geodetic, gmst);
+    assert_eq(eci_result.x, eci.x);
+    assert_eq(eci_result.y, eci.y);
+    assert_eq(eci_result.z, eci.z);
+  }
+
+  #[test]
+  fn it_converts_eci_to_aer() {
+    let eci = Cartesian {
+      x: -1040.847789 - 2558.531817,
+      y: 6686.458279 - 4639.454865,
+      z: 3670.305288 - 3539.150874,
+    };
+  let observer_lat_lng = [33.920700, -118.327800];
+    let gmst = 3.132033;
+    let aer = Horizontal {
+      azimuth_deg: 88.913626,
+      elevation_deg: 1.635970,
+      range_km: 4142.820054,
+    };
+    let aer_result = super::enu_to_aer(&super::eci_to_topocentric_enu(
+      &eci,
+      observer_lat_lng[0],
+      observer_lat_lng[1],
+      gmst,
+    ));
+    assert_eq(aer_result.azimuth_deg, aer.azimuth_deg);
+    assert_eq(aer_result.elevation_deg, aer.elevation_deg);
+    assert_eq(aer_result.range_km, aer.range_km);
+  }
+}
