@@ -1,28 +1,5 @@
+use super::state::{Geodetic, Cartesian, Horizontal};
 use std::f64::consts::PI;
-
-pub struct Geodetic {
-  pub(super) lat_deg: f64,
-  pub(super) lon_deg: f64,
-  pub(super) alt_km: f64,
-}
-
-pub struct Horizontal {
-  pub(super) azimuth_deg: f64,
-  pub(super) elevation_deg: f64,
-  pub(super) range_km: f64,
-}
-
-pub struct Cartesian {
-  pub(super) x: f64,
-  pub(super) y: f64,
-  pub(super) z: f64,
-}
-
-pub enum Coords {
-  Geodetic(Geodetic),
-  Horizontal(Horizontal),
-  Cartesian(Cartesian),
-}
 
 pub fn eci_to_geodetic(position_eci_km: &Cartesian, gmst: f64) -> Geodetic {
   let theta = position_eci_km.y.atan2(position_eci_km.x);
@@ -37,16 +14,16 @@ pub fn eci_to_geodetic(position_eci_km: &Cartesian, gmst: f64) -> Geodetic {
 }
 
 pub fn geodetic_to_eci(position_geodetic: &Geodetic, gmst: f64) -> Cartesian {
-  let a = 6378137.0_f64;
-  let e_sq = 0.00669437999014_f64;
+  const A: f64 = 6378137.0;
+  const E_SQ: f64 = 0.00669437999014;
   let cos_phi = position_geodetic.lat_deg.to_radians().cos();
   let sin_phi = position_geodetic.lat_deg.to_radians().sin();
-  let cc = a / (1.0 - e_sq * sin_phi.powi(2)).sqrt();
+  let cc = A / (1.0 - E_SQ * sin_phi.powi(2)).sqrt();
   let theta = gmst + position_geodetic.lon_deg.to_radians();
   Cartesian {
     x: ((cc + position_geodetic.alt_km * 1000.0) * cos_phi * theta.cos()) * 0.001,
     y: ((cc + position_geodetic.alt_km * 1000.0) * cos_phi * theta.sin()) * 0.001,
-    z: ((cc * (1.0 - e_sq) + position_geodetic.alt_km * 1000.0) * sin_phi) * 0.001,
+    z: ((cc * (1.0 - E_SQ) + position_geodetic.alt_km * 1000.0) * sin_phi) * 0.001,
   }
 }
 
@@ -86,31 +63,31 @@ fn compute_geodetic_coords_2d(r_km: f64, z_km: f64) -> (f64, f64) {
   // Refer to
   // J. Zhu, "Conversion of Earth-centered Earth-fixed coordinates to geodetic coordinates,"
   // IEEE Transactions on Aerospace and Electronic Systems, vol 30, pp 957-961, 1994.
-  let a_sq = 6378137.0_f64.powi(2);
-  let b_sq = 6356752.3142_f64.powi(2);
-  let e_sq = 0.00669437999014_f64;
-  let e_two_sq = 0.00673949674228_f64;
+  const A_SQ: f64 = 40680631590769.0;
+  const B_SQ: f64 = 40408299984087.0;
+  const E_SQ: f64 = 0.00669437999014;
+  const E_TWO_SQ: f64 = 0.00673949674228;
   let r = r_km * 1000.0;
   let r_sq = r.powi(2);
   let z = z_km * 1000.0;
   let z_sq = z.powi(2);
-  let ee_sq = a_sq - b_sq;
-  let ff = 54.0 * b_sq * z_sq;
-  let gg = r_sq + ((1.0 - e_sq) * z_sq) - (e_sq * ee_sq);
-  let cc = (e_sq.powi(2) * ff * r_sq) / gg.powi(3);
+  let ee_sq = A_SQ - B_SQ;
+  let ff = 54.0 * B_SQ * z_sq;
+  let gg = r_sq + ((1.0 - E_SQ) * z_sq) - (E_SQ * ee_sq);
+  let cc = (E_SQ.powi(2) * ff * r_sq) / gg.powi(3);
   let ss = (1.0 + cc + (cc.powi(2) + 2.0 * cc).sqrt()).cbrt();
   let pp = ff / (3.0 * (ss + ss.recip() + 1.0).powi(2) * gg.powi(2));
-  let qq = (1.0 + 2.0 * e_sq.powi(2) * pp).sqrt();
-  let r_o = ((-(pp * e_sq * r)) / (1.0 + qq)) +
+  let qq = (1.0 + 2.0 * E_SQ.powi(2) * pp).sqrt();
+  let r_o = ((-(pp * E_SQ * r)) / (1.0 + qq)) +
     (
-      (0.5 * a_sq * (1.0 + qq.recip()))
-      - ((pp * (1.0 - e_sq) * z_sq) / (qq * (1.0 + qq)))
+      (0.5 * A_SQ * (1.0 + qq.recip()))
+      - ((pp * (1.0 - E_SQ) * z_sq) / (qq * (1.0 + qq)))
       - (0.5 * pp * r_sq)
     ).sqrt();
-  let uu = ((r - e_sq * r_o).powi(2) + z_sq).sqrt();
-  let vv = ((r - e_sq * r_o).powi(2) + (1.0 - e_sq) * z_sq).sqrt();
-  let z_o = b_sq * z / (a_sq.sqrt() * vv);
-  let lat_deg = (z + e_two_sq * z_o).atan2(r).to_degrees();
+  let uu = ((r - E_SQ * r_o).powi(2) + z_sq).sqrt();
+  let vv = ((r - E_SQ * r_o).powi(2) + (1.0 - E_SQ) * z_sq).sqrt();
+  let z_o = B_SQ * z / (A_SQ.sqrt() * vv);
+  let lat_deg = (z + E_TWO_SQ * z_o).atan2(r).to_degrees();
   let alt_km = uu * (1.0 - z_o / z) * 0.001;
   (lat_deg, alt_km)
 }
