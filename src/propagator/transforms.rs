@@ -1,4 +1,4 @@
-use super::state::{Geodetic, Cartesian, Horizontal};
+use super::{Geodetic, Cartesian, Horizontal};
 use std::f64::consts::PI;
 
 pub fn eci_to_geodetic(position_eci_km: &Cartesian, gmst: f64) -> Geodetic {

@@ -1,13 +1,11 @@
-mod state;
 mod satellite;
 mod observer;
 mod transforms;
 
-pub use observer::Observer;
-use observer::RangedSatellite;
+use super::state::{State, Geodetic, Cartesian, Horizontal};
 use satellite::Satellite;
-use state::{State, Geodetic, Cartesian};
-use chrono::{Datelike, Timelike};
+use observer::{Observer, RangedSatellite};
+use chrono::{Utc, Datelike, Timelike, TimeZone};
 
 pub struct Sgp4Data(sgp4::Elements, sgp4::Constants<'static>);
 
@@ -17,9 +15,6 @@ impl Sgp4Data {
       Ok(constants) => Some(Sgp4Data(elements, constants)),
       _ => None,
     }
-  }
-  pub fn get_norad_cat_id(&self) -> u64 {
-    self.0.norad_id
   }
   pub fn get_name(&self) -> &str {
     match self.0.object_name.as_ref() {
@@ -35,27 +30,42 @@ impl Sgp4Data {
   }
 }
 
-pub struct Propagator<'a>(Vec<Satellite<'a>>);
+pub struct Propagator(Vec<Satellite>, Observer, Vec<Sgp4Data>);
 
-impl<'a> Propagator<'a> {
-  pub fn from_sgp4_data(sgp4_data: &'a Vec<Sgp4Data>) -> Self {
-    Propagator(sgp4_data.iter().map(|data| Satellite {
-      state: State {
-        position: Geodetic { lat_deg: 0.0, lon_deg: 0.0, alt_km: 0.0 },
-        velocity: None,
-        time: 0,
-      },
-      state_auxiliary: None,
-      linked_data: data,
-    }).collect())
+impl Propagator {
+  pub fn from_data(sgp4_data: Vec<Sgp4Data>, observer_coords: [f64; 3]) -> Self {
+    Propagator(
+      sgp4_data.iter().enumerate().map(|(idx, _)| Satellite {
+        state: State {
+          position: Geodetic { lat_deg: 0.0, lon_deg: 0.0, alt_km: 0.0 },
+          velocity: None,
+          time: 0,
+        },
+        state_auxiliary: None,
+        linked_data_idx: idx,
+      }).collect(),
+      Observer::from_coords(
+        observer_coords[0],
+        observer_coords[1],
+        observer_coords[2],
+        sgp4_data.len() / 4,
+      ),
+      sgp4_data,
+    )
   }
-  pub fn get_satellites(&self) -> &Vec<Satellite<'a>> {
+  pub fn get_satellites(&self) -> &Vec<Satellite> {
     &self.0
+  }
+  pub fn get_observer(&self) -> &Observer {
+    &self.1
+  }
+  pub fn get_sat_data(&self, idx: usize) -> &Sgp4Data {
+    &self.2[self.0[idx].linked_data_idx]
   }
   pub fn propagate(&mut self) -> () {
     for sat in self.0.iter_mut() {
-      let Sgp4Data(elements, constants) = sat.linked_data;
-      let timestamp = chrono::Utc::now().naive_utc();
+      let Sgp4Data(elements, constants) = &self.2[sat.linked_data_idx];
+      let timestamp = Utc::now().naive_utc();
       let elapsed_ms = timestamp.signed_duration_since(elements.datetime).num_milliseconds();
       if let Ok(prediction) = constants.propagate((elapsed_ms as f64) / (1000.0 * 60.0)) {
         let position_eci_km = Cartesian {
@@ -86,35 +96,38 @@ impl<'a> Propagator<'a> {
       }
     }
   }
-  pub fn update_observer_satellites(&self, observer: &mut Observer) -> () {
-    let timestamp = chrono::Utc::now().naive_utc();
-    let gmst = sgp4::iau_epoch_to_sidereal_time(epoch(&timestamp));
-    let observer_eci = transforms::geodetic_to_eci(observer.get_position(), gmst);
-    for sat in self.0.iter() {
+  pub fn update_observer_satellites(&mut self) -> () {
+    let Propagator(satellites, observer, _) = self;
+    for sat in satellites.iter() {
+      let timestamp = Utc.timestamp(sat.state.time, 0).naive_utc();
+      let gmst = sgp4::iau_epoch_to_sidereal_time(epoch(&timestamp));
+      let observer_eci = transforms::geodetic_to_eci(&observer.state.position, gmst);
       let range_eci = Cartesian {
-        x: sat.get_x() - observer_eci.x,
-        y: sat.get_y() - observer_eci.y,
-        z: sat.get_z() - observer_eci.z,
+        x: sat.get_position_auxiliary().x - observer_eci.x,
+        y: sat.get_position_auxiliary().y - observer_eci.y,
+        z: sat.get_position_auxiliary().z - observer_eci.z,
       };
       let range_enu = transforms::eci_to_topocentric_enu(
         &range_eci,
-        observer.get_position().lat_deg,
-        observer.get_position().lon_deg,
+        observer.state.position.lat_deg,
+        observer.state.position.lon_deg,
         gmst,
       );
       if range_enu.z > 0.0 {
         let range_aer = transforms::enu_to_aer(&range_enu);
-        observer.upsert_satellite_in_range(RangedSatellite {
-          norad_cat_id: sat.get_norad_cat_id(),
-          object_id: sat.get_object_id().to_owned(),
-          name: sat.get_name().to_owned(),
-          vector: range_aer,
+        observer.upsert_ranged_satellite(RangedSatellite {
+          vector: State {
+            position: range_aer,
+            velocity: None,
+            time: timestamp.timestamp(),
+          },
+          linked_data_idx: sat.linked_data_idx,
         });
       } else {
-        observer.delete_satellite_in_range(sat.get_norad_cat_id());
+        observer.delete_ranged_satellite(sat.linked_data_idx);
       }
     }
-    observer.state.time = timestamp.timestamp();
+    observer.state.time = Utc::now().naive_utc().timestamp();
   }
 }
 

@@ -1,9 +1,20 @@
-use super::state::{State, Geodetic, Horizontal};
+use super::{State, Geodetic, Horizontal};
 use std::collections::HashMap;
+
+pub struct RangedSatellite {
+  pub(super) vector: State<Horizontal>,
+  pub(super) linked_data_idx: usize,
+}
+
+impl RangedSatellite {
+  pub fn get_position(&self) -> &Horizontal {
+    &self.vector.position
+  }
+}
 
 pub struct Observer {
   pub(super) state: State<Geodetic>,
-  satellites_in_range: HashMap<u64, RangedSatellite>,
+  satellites_in_range: HashMap<usize, RangedSatellite>,
 }
 
 impl Observer {
@@ -21,44 +32,13 @@ impl Observer {
       satellites_in_range: HashMap::with_capacity(max_sats),
     }
   }
-  pub fn get_position(&self) -> &Geodetic {
-    &self.state.position
+  pub fn get_ranged_satellites(&self) -> &HashMap<usize, RangedSatellite> {
+    &self.satellites_in_range
   }
-  pub fn get_satellites_in_range(&self) -> Vec<&RangedSatellite> {
-    self.satellites_in_range.values().collect()
+  pub fn upsert_ranged_satellite(&mut self, sat: RangedSatellite) -> () {
+    self.satellites_in_range.insert(sat.linked_data_idx, sat);
   }
-  pub fn upsert_satellite_in_range(&mut self, sat: RangedSatellite) -> () {
-    self.satellites_in_range.insert(sat.get_norad_cat_id(), sat);
-  }
-  pub fn delete_satellite_in_range(&mut self, id: u64) -> () {
+  pub fn delete_ranged_satellite(&mut self, id: usize) -> () {
     self.satellites_in_range.remove(&id);
-  }
-}
-
-pub struct RangedSatellite {
-  pub(super) norad_cat_id: u64,
-  pub(super) object_id: String,
-  pub(super) name: String,
-  pub(super) vector: Horizontal,
-}
-
-impl RangedSatellite {
-  pub fn get_norad_cat_id(&self) -> u64 {
-    self.norad_cat_id
-  }
-  pub fn get_object_id(&self) -> &str {
-    &self.object_id
-  }
-  pub fn get_name(&self) -> &str {
-    &self.name
-  }
-  pub fn get_azimuth_deg(&self) -> f64 {
-    self.vector.azimuth_deg
-  }
-  pub fn get_elevation_deg(&self) -> f64 {
-    self.vector.elevation_deg
-  }
-  pub fn get_range_km(&self) -> f64 {
-    self.vector.range_km
   }
 }

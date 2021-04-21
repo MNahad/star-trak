@@ -1,2 +1,2 @@
 # star-trak
-WebAssembly realtime Starlink satellite tracker using SGP4
+WebAssembly-ready SGP4 realtime satellite tracker
