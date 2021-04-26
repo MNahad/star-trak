@@ -28,6 +28,9 @@ impl Sgp4Data {
       _ => "UNKNOWN",
     }
   }
+  pub fn get_norad_cat_id(&self) -> &u64 {
+    &self.0.norad_id
+  }
 }
 
 pub struct Propagator(Vec<Satellite>, Observer, Vec<Sgp4Data>);
@@ -58,6 +61,9 @@ impl Propagator {
   }
   pub fn get_observer(&self) -> &Observer {
     &self.1
+  }
+  pub fn get_sgp4_data(&self) -> &Vec<Sgp4Data> {
+    &self.2
   }
   pub fn get_sat_data(&self, idx: usize) -> &Sgp4Data {
     &self.2[self.0[idx].linked_data_idx]

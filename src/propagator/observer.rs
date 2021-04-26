@@ -35,10 +35,10 @@ impl Observer {
   pub fn get_ranged_satellites(&self) -> &HashMap<usize, RangedSatellite> {
     &self.satellites_in_range
   }
-  pub fn upsert_ranged_satellite(&mut self, sat: RangedSatellite) -> () {
+  pub(super) fn upsert_ranged_satellite(&mut self, sat: RangedSatellite) -> () {
     self.satellites_in_range.insert(sat.linked_data_idx, sat);
   }
-  pub fn delete_ranged_satellite(&mut self, id: usize) -> () {
+  pub(super) fn delete_ranged_satellite(&mut self, id: usize) -> () {
     self.satellites_in_range.remove(&id);
   }
 }
