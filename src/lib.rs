@@ -27,6 +27,9 @@ impl Service {
       ).collect::<Vec<Horizontal>>(),
     )).expect("CANNOT SERIALISE")
   }
+  pub fn update_observer(&mut self, lat_deg: f32, lon_deg: f32, alt_km: f32) -> () {
+    update_observer(&mut self.0, lat_deg.into(), lon_deg.into(), alt_km.into());
+  }
 }
 
 pub fn init(mut elements_group: Vec<sgp4::Elements>, observer_coords: [f64; 3]) -> Propagator {
@@ -39,7 +42,16 @@ pub fn init(mut elements_group: Vec<sgp4::Elements>, observer_coords: [f64; 3]) 
   Propagator::from_data(sgp4_data, observer_coords)
 }
 
-pub fn update(propagator: &mut Propagator) {
+pub fn update(propagator: &mut Propagator) -> () {
   propagator.propagate();
   propagator.update_observer_satellites();
+}
+
+pub fn update_observer(
+  propagator: &mut Propagator,
+  lat_deg: f64,
+  lon_deg: f64,
+  alt_km: f64
+) -> () {
+  propagator.update_observer(lat_deg, lon_deg, alt_km);
 }

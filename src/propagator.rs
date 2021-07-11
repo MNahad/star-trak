@@ -68,6 +68,9 @@ impl Propagator {
   pub fn get_sat_data(&self, idx: usize) -> &Sgp4Data {
     &self.2[self.0[idx].linked_data_idx]
   }
+  pub fn update_observer(&mut self, lat_deg: f64, lon_deg: f64, alt_km: f64) -> () {
+    self.1.update_observer(lat_deg, lon_deg, alt_km);
+  }
   pub fn propagate(&mut self) -> () {
     for sat in self.0.iter_mut() {
       let Sgp4Data(elements, constants) = &self.2[sat.linked_data_idx];

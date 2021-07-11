@@ -41,4 +41,9 @@ impl Observer {
   pub(super) fn delete_ranged_satellite(&mut self, id: usize) -> () {
     self.satellites_in_range.remove(&id);
   }
+  pub(super) fn update_observer(&mut self, lat_deg: f64, lon_deg: f64, alt_km: f64) -> () {
+    self.state.position.lat_deg = lat_deg;
+    self.state.position.lon_deg = lon_deg;
+    self.state.position.alt_km = alt_km;
+  }
 }
