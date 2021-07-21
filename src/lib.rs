@@ -2,6 +2,7 @@ mod state;
 mod propagator;
 
 use propagator::{Propagator, Sgp4Data};
+#[cfg(feature = "js-api")]
 use state::{Geodetic, Horizontal};
 #[cfg(feature = "js-api")]
 use wasm_bindgen::prelude::*;
@@ -21,10 +22,12 @@ impl Service {
   pub fn update(&mut self) -> JsValue {
     update(&mut self.0);
     JsValue::from_serde(&(
-      self.0.get_satellites().iter().map(|sat| *sat.get_position()).collect::<Vec<Geodetic>>(),
+      self.0.get_satellites().iter().map(
+        |sat| (*sat.get_position(), self.0.get_sat_data(sat.get_linked_idx()).get_name()),
+      ).collect::<Vec<(Geodetic, &str)>>(),
       self.0.get_observer().get_ranged_satellites().iter().map(
-        |(_, sat)| *sat.get_position()
-      ).collect::<Vec<Horizontal>>(),
+        |(_, sat)| (*sat.get_position(), self.0.get_sat_data(sat.get_linked_idx()).get_name()),
+      ).collect::<Vec<(Horizontal, &str)>>(),
     )).expect("CANNOT SERIALISE")
   }
   pub fn update_observer(&mut self, lat_deg: f32, lon_deg: f32, alt_km: f32) -> () {
@@ -51,7 +54,7 @@ pub fn update_observer(
   propagator: &mut Propagator,
   lat_deg: f64,
   lon_deg: f64,
-  alt_km: f64
+  alt_km: f64,
 ) -> () {
   propagator.update_observer(lat_deg, lon_deg, alt_km);
 }

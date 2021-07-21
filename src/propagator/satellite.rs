@@ -16,4 +16,7 @@ impl Satellite {
       None => &Cartesian { x: 0.0, y: 0.0, z: 0.0 },
     }
   }
+  pub fn get_linked_idx(&self) -> usize {
+    self.linked_data_idx
+  }
 }

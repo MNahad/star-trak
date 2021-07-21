@@ -10,6 +10,9 @@ impl RangedSatellite {
   pub fn get_position(&self) -> &Horizontal {
     &self.vector.position
   }
+  pub fn get_linked_idx(&self) -> usize {
+    self.linked_data_idx
+  }
 }
 
 pub struct Observer {
