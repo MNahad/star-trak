@@ -57,11 +57,11 @@ fn main() {
     write(&mut output, "\n");
     loop {
         star_trak::update(&mut engine);
-        let geodetic_states = star_trak::get_constellation_geodetic_states(&engine);
+        let geodetic_positions = star_trak::get_constellation_geodetic_positions(&engine);
         let (ranged_positions, ranged_velocities) = star_trak::get_observer_constellations(&engine);
         let timestamps = engine.get_timestamps();
         write(&mut output, "POS_GEO");
-        write_vec(&mut output, geodetic_states);
+        write_vec(&mut output, geodetic_positions);
         write(&mut output, "REL_POS_AER");
         write_vec(&mut output, ranged_positions);
         write(&mut output, "REL_VEL_ENU");

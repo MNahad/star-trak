@@ -24,7 +24,7 @@ pub fn update(engine: &mut Engine) -> () {
     engine.update_observers_satellites();
 }
 
-pub fn get_constellation_geodetic_states(engine: &Engine) -> &Vec<State> {
+pub fn get_constellation_geodetic_positions(engine: &Engine) -> &Vec<State> {
     engine.get_states(StateType::PositionGeodetic)
 }
 
@@ -53,15 +53,27 @@ impl Service {
     pub fn get_norad_ids(&self) -> Vec<u64> {
         self.0.get_norad_ids()
     }
-    pub fn update(&mut self) -> Vec<f64> {
+    pub fn update(&mut self) -> () {
         update(&mut self.0);
-        let geodetic_states = get_constellation_geodetic_states(&self.0);
-        let (ranged_positions, ranged_velocities) = get_observer_constellations(&self.0);
-        geodetic_states
+    }
+    pub fn get_constellation_geodetic_positions(&self) -> Vec<f64> {
+        get_constellation_geodetic_positions(&self.0)
             .iter()
-            .chain(ranged_positions.iter())
-            .chain(ranged_velocities.iter())
-            .flat_map(|&State(val1, val2, val3)| [val1, val2, val3])
+            .flat_map(|&State(lat, lon, alt)| [lat, lon, alt])
+            .collect()
+    }
+    pub fn get_ranged_positions(&self) -> Vec<f64> {
+        let (ranged_positions, _) = get_observer_constellations(&self.0);
+        ranged_positions
+            .iter()
+            .flat_map(|&State(lat, lon, alt)| [lat, lon, alt])
+            .collect()
+    }
+    pub fn get_ranged_velocities(&self) -> Vec<f64> {
+        let (_, ranged_velocities) = get_observer_constellations(&self.0);
+        ranged_velocities
+            .iter()
+            .flat_map(|&State(lat, lon, alt)| [lat, lon, alt])
             .collect()
     }
     pub fn update_observer(&mut self, lat_deg: f64, lon_deg: f64, alt_km: f64) -> () {
