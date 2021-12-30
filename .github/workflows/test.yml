@@ -6,6 +6,6 @@ on:
 jobs:
   test:
     runs-on: ubuntu-20.04
-    container: rust:1.56.0-bullseye-slim
+    container: rust:1.56.0-slim-bullseye
     steps:
       - run: cargo test
