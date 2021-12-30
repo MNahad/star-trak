@@ -1,0 +1,11 @@
+name: Test
+on:
+  push:
+    branches:
+      - master
+jobs:
+  test:
+    runs-on: ubuntu-20.04
+    container: rust:1.56.0-bullseye-slim
+    steps:
+      - run: cargo test
