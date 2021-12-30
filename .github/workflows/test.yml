@@ -8,4 +8,7 @@ jobs:
     runs-on: ubuntu-20.04
     container: rust:1.56.0-slim-bullseye
     steps:
-      - run: cargo test
+      - name: Checkout
+        uses: actions/checkout@v2
+      - name: Test
+        run: cargo test
