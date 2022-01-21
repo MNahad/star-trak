@@ -244,6 +244,26 @@ export class Service {
 }
 ```
 
+# Architecture
+
+## Constellation data model
+
+This crate stores data purely in the form of flat vectors. Each vector stores the same type of state information across the constellation of satellites, be it geodetic position or topocentric position or some other type. The length of each vector is equal to the number of satellites (the constellation size).
+
+Storing data in this structure helps in retrieving all state data of a specific type as a single vector reference. It also allows for potential SIMD optimisations depending on the compiler, an example being WebAssembly fixed-width SIMD instructions.
+
+## Constellation engine
+
+_Note: The computations mentioned in this section are based on [2] [3] [4] [5] and [6]._
+
+The orbit propagation and coordinate transformations are carried out by the constellation engine.
+
+Starting from the propagator constants for each satellite in the constellation, the position and velocity in the Earth-Centred Inertial (ECI) cartesian coordinate frame at the current date and time are first determined using the `sgp4` crate.
+
+Then a series of transformations are performed that convert the ECI position states into Earth-Centred Earth-Fixed (ECEF) geodetic states. Both the updated ECI and ECEF states are then stored in the constellation data structure.
+
+The next step is to update the observer-relative state data. The observer's position is transformed from ECEF geodetic to ECI. Then a range vector from the observer to each satellite is computed using the satellite's ECI position state. This vector is transformed to the East-North-Up (ENU) topocentric coordinate frame, and then to the Azimuth-Elevation-Range (AER) topocentric frame. This data is stored in the constellation data structure. The satellite's ECI velocity state is also transformed into ENU relative to the observer, and stored.
+
 # References
 
 [1] Consultative Committee for Space Data Systems, "Recommendations for Space Data System Standards - Orbit Data Messages," CCSDS 502.0-B-2 [Online], 2009. Available: https://public.ccsds.org/Pubs/502x0b2c1e2.pdf
