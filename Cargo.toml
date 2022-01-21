@@ -1,6 +1,6 @@
 [package]
 name = "star_trak"
-version = "0.8.0"
+version = "1.0.0"
 authors = ["Mohammed Nawabuddin <MNahad@users.noreply.github.com>"]
 description = "WebAssembly-ready SGP4 realtime satellite tracker"
 repository = ""
