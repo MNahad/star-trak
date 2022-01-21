@@ -15,7 +15,7 @@ pub enum StateType {
 pub struct Engine(Constellation, Observers);
 
 impl Engine {
-    pub fn from_data(elements_vec: Vec<Elements>, observers_states: Vec<State>) -> Self {
+    pub(super) fn from_data(elements_vec: Vec<Elements>, observers_states: Vec<State>) -> Self {
         let constellation = Constellation::from_elements(elements_vec);
         let constellation_len = constellation.sgp4_data.len();
         Engine(
@@ -23,7 +23,7 @@ impl Engine {
             Observers::from_states(observers_states, constellation_len),
         )
     }
-    pub fn update_observer_states(&mut self, observer_states: Vec<State>) -> () {
+    pub(super) fn update_observer_states(&mut self, observer_states: Vec<State>) -> () {
         let current_len = self.1.states.len();
         let new_len = observer_states.len();
         let constellation_len = self.0.sgp4_data.len();
@@ -45,7 +45,7 @@ impl Engine {
             }
         }
     }
-    pub fn propagate(&mut self) -> () {
+    pub(super) fn propagate(&mut self) -> () {
         for (i, (elements, constants)) in self.0.sgp4_data.iter().enumerate() {
             let timestamp = Utc::now().naive_utc();
             let elapsed_ms = timestamp
@@ -75,7 +75,7 @@ impl Engine {
             }
         }
     }
-    pub fn update_observers_satellites(&mut self) -> () {
+    pub(super) fn update_observers_satellites(&mut self) -> () {
         let Constellation {
             positions_eci,
             velocities_eci,
@@ -109,7 +109,7 @@ impl Engine {
             .map(|data| data.0.norad_id)
             .collect()
     }
-    pub fn get_states(&self, state_type: StateType) -> &Vec<State> {
+    pub(super) fn get_states(&self, state_type: StateType) -> &Vec<State> {
         match state_type {
             StateType::PositionGeodetic => &self.0.positions_geodetic,
             StateType::PositionAER(observer_number) => {

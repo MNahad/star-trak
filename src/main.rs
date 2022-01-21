@@ -50,6 +50,7 @@ fn main() {
     write(&mut output, norad_ids.len());
     write(&mut output, "IDS");
     write_vec(&mut output, &norad_ids);
+    write(&mut output, "\n");
     write(
         &mut output,
         "[POS_GEO:DEG_DEG_KM|REL_POS_AER:DEG_DEG_KM|REL_VEL_ENU:KM_KM_KM|TIME:S]",
